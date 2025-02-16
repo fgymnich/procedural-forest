@@ -14,6 +14,8 @@ class ForestGenerator {
   private container: HTMLElement | null;
   private dog: VoxelDog;
   private collidableObjects: THREE.Object3D[] = [];
+  private isMovingForward: boolean = false;
+  private isMovingBackward: boolean = false;
 
   // Store objects by type for selective updates
   private forestElements: {
@@ -195,6 +197,21 @@ class ForestGenerator {
   }
 
   private isPositionOccupied(position: THREE.Vector2, elementType: keyof typeof this.forestElements): boolean {
+    // Check to not render anything over the dog's initial position
+    const safeZoneRadius = 3; // 3 units radius around the dog's starting position
+    const distanceFromCenter = Math.sqrt(position.x * position.x + position.y * position.y);
+    if (distanceFromCenter < safeZoneRadius) {
+      return true; // Position is occupied if it's in the safe zone
+    }
+
+    // Only check dog position if dog exists
+    if (this.dog?.object) {
+      const dogPosition = new THREE.Vector2(this.dog.object.position.x, this.dog.object.position.z);
+      if (dogPosition.distanceTo(position) < 3) {
+        return true;
+      }
+    }
+
     const newElementSize = this.getElementSize(elementType);
     const padding = 0.5; // Additional space between objects
 
@@ -319,20 +336,14 @@ class ForestGenerator {
           case 'bushes':
             element = VoxelObjects.createBush(1 + Math.random());
             this.disableShadows(element);
-            // Add to collidable objects
-            this.collidableObjects.push(element);
             break;
           case 'flowers':
             element = VoxelObjects.createFlower(0.5 + Math.random() * 0.5);
             this.disableShadows(element);
-            // Add to collidable objects
-            this.collidableObjects.push(element);
             break;
           case 'grassPatches':
             element = VoxelObjects.createGrassPatch(0.3 + Math.random() * 0.3);
             this.disableShadows(element);
-            // Add to collidable objects
-            this.collidableObjects.push(element);
             break;
           default:
             return;
@@ -393,19 +404,45 @@ class ForestGenerator {
       if (document.activeElement === this.container) {
         switch (event.code) {
           case 'ArrowUp':
-            this.dog.moveForward();
+            this.isMovingForward = true;
+            this.isMovingBackward = false;
             break;
           case 'ArrowDown':
-            this.dog.moveBackward();
+            this.isMovingBackward = true;
+            this.isMovingForward = false;
             break;
           case 'ArrowLeft':
             this.dog.turnLeft();
+            if (this.isMovingForward) {
+              this.dog.moveForward();
+            } else if (this.isMovingBackward) {
+              this.dog.moveBackward();
+            }
             break;
           case 'ArrowRight':
             this.dog.turnRight();
+            if (this.isMovingForward) {
+              this.dog.moveForward();
+            } else if (this.isMovingBackward) {
+              this.dog.moveBackward();
+            }
             break;
           case 'Space':
             this.dog.jump();
+            break;
+        }
+      }
+    });
+
+    // Handle key up events to stop movement
+    document.addEventListener('keyup', (event) => {
+      if (document.activeElement === this.container) {
+        switch (event.code) {
+          case 'ArrowUp':
+            this.isMovingForward = false;
+            break;
+          case 'ArrowDown':
+            this.isMovingBackward = false;
             break;
         }
       }
@@ -421,6 +458,13 @@ class ForestGenerator {
 
   private animate(): void {
     requestAnimationFrame(this.animate.bind(this));
+    
+    // Apply continuous movement if keys are held
+    if (this.isMovingForward) {
+      this.dog.moveForward();
+    } else if (this.isMovingBackward) {
+      this.dog.moveBackward();
+    }
     
     // Update dog physics and collisions
     this.dog.update(this.collidableObjects);
