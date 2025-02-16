@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as dat from 'dat.gui';
 import { VoxelObjects } from './objects/VoxelObjects';
+import { VoxelDog } from './objects/VoxelDog';
 
 class ForestGenerator {
   private scene: THREE.Scene;
@@ -11,6 +12,8 @@ class ForestGenerator {
   private controls: OrbitControls;
   private gui: dat.GUI;
   private container: HTMLElement | null;
+  private dog: VoxelDog;
+  private collidableObjects: THREE.Object3D[] = [];
 
   // Store objects by type for selective updates
   private forestElements: {
@@ -96,6 +99,16 @@ class ForestGenerator {
     this.setupLights();
     this.createGround();
     this.generateInitialForest();
+
+    // Initialize the dog
+    this.dog = new VoxelDog();
+    this.scene.add(this.dog.object);
+    
+    // Set initial dog position
+    this.dog.object.position.set(0, 0.4, 0);
+
+    // Setup keyboard controls
+    this.setupKeyboardControls();
 
     // Handle window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
@@ -272,6 +285,9 @@ class ForestGenerator {
           el => el !== elementToRemove
         );
       }
+
+      // After removing, update collidable objects
+      this.updateCollidableObjects();
     } else {
       // Add new elements
       let attemptsToAdd = 0;
@@ -291,22 +307,32 @@ class ForestGenerator {
           case 'trees':
             element = VoxelObjects.createTree(3 + Math.random() * 3);
             this.setupTreeShadows(element);
+            // Add to collidable objects
+            this.collidableObjects.push(element);
             break;
           case 'rocks':
             element = VoxelObjects.createRock(0.5 + Math.random() * 1.5);
             this.disableShadows(element);
+            // Add to collidable objects
+            this.collidableObjects.push(element);
             break;
           case 'bushes':
             element = VoxelObjects.createBush(1 + Math.random());
             this.disableShadows(element);
+            // Add to collidable objects
+            this.collidableObjects.push(element);
             break;
           case 'flowers':
             element = VoxelObjects.createFlower(0.5 + Math.random() * 0.5);
             this.disableShadows(element);
+            // Add to collidable objects
+            this.collidableObjects.push(element);
             break;
           case 'grassPatches':
             element = VoxelObjects.createGrassPatch(0.3 + Math.random() * 0.3);
             this.disableShadows(element);
+            // Add to collidable objects
+            this.collidableObjects.push(element);
             break;
           default:
             return;
@@ -345,8 +371,60 @@ class ForestGenerator {
     // But we'll keep the method in case we want to make it responsive later
   }
 
+  private setupKeyboardControls(): void {
+    // Add click handler to focus the renderer
+    this.container?.addEventListener('click', () => {
+      this.container?.focus();
+    });
+
+    // Add tabindex to make the container focusable
+    this.container?.setAttribute('tabindex', '0');
+
+    // Prevent arrow key scrolling when container is focused
+    this.container?.addEventListener('keydown', (event) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) {
+        event.preventDefault();
+      }
+    });
+
+    // Handle keyboard controls
+    document.addEventListener('keydown', (event) => {
+      // Only process controls if the container is focused
+      if (document.activeElement === this.container) {
+        switch (event.code) {
+          case 'ArrowUp':
+            this.dog.moveForward();
+            break;
+          case 'ArrowDown':
+            this.dog.moveBackward();
+            break;
+          case 'ArrowLeft':
+            this.dog.turnLeft();
+            break;
+          case 'ArrowRight':
+            this.dog.turnRight();
+            break;
+          case 'Space':
+            this.dog.jump();
+            break;
+        }
+      }
+    });
+  }
+
+  private updateCollidableObjects(): void {
+    this.collidableObjects = [
+      ...this.forestElements.trees,
+      ...this.forestElements.rocks
+    ];
+  }
+
   private animate(): void {
     requestAnimationFrame(this.animate.bind(this));
+    
+    // Update dog physics and collisions
+    this.dog.update(this.collidableObjects);
+    
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
