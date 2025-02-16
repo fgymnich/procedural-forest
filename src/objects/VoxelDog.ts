@@ -15,7 +15,7 @@ export class VoxelDog {
     this.velocity = new THREE.Vector3();
     this.isJumping = false;
 
-    // Create dog body (twice the size of flowers: flower is 0.5, so body is 1.0)
+    // Create dog body 
     const bodyGeometry = new THREE.BoxGeometry(1.0, 0.8, 1.4); // width, height, length
     const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);

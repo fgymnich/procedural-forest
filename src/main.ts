@@ -198,7 +198,7 @@ class ForestGenerator {
 
   private isPositionOccupied(position: THREE.Vector2, elementType: keyof typeof this.forestElements): boolean {
     // Check to not render anything over the dog's initial position
-    const safeZoneRadius = 3; // 3 units radius around the dog's starting position
+    const safeZoneRadius = 5; // 5 units radius around the dog's starting position
     const distanceFromCenter = Math.sqrt(position.x * position.x + position.y * position.y);
     if (distanceFromCenter < safeZoneRadius) {
       return true; // Position is occupied if it's in the safe zone
