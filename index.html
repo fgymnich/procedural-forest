@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voxel Forest Generator</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        background-color: #2c2c2c;
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        min-height: 100vh;
+      }
+
+      .container {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+      }
+
+      #app {
+        width: 800px;
+        height: 600px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 2px solid #444;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      /* GUI styling overrides */
+      .dg.main {
+        margin-top: 0 !important;
+      }
+
+      .dg.main .close-button {
+        display: none !important;
+      }
+
+      .dg.main {
+        background-color: #1a1a1a !important;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div id="app"></div>
+      <!-- The GUI will be automatically inserted here next to the app container -->
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
