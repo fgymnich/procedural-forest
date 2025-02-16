@@ -150,19 +150,16 @@ class ForestGenerator {
   }
 
   private generateInitialForest(): void {
-    this.updateElementCount('trees', true);
-    this.updateElementCount('rocks', true);
-    this.updateElementCount('bushes', true);
-    this.updateElementCount('flowers', true);
-    this.updateElementCount('grassPatches', true);
+    this.updateElementCount('trees');
+    this.updateElementCount('rocks');
+    this.updateElementCount('bushes');
+    this.updateElementCount('flowers');
+    this.updateElementCount('grassPatches');
   }
 
-  private updateElementCount(elementType: keyof typeof this.forestElements, isInitial: boolean = false): void {
+  private updateElementCount(elementType: keyof typeof this.forestElements): void {
     const currentCount = this.forestElements[elementType].length;
     const targetCount = this.settings[elementType];
-
-    let is = isInitial;
-    is = true;
     
     if (currentCount === targetCount) return;
 
