@@ -160,6 +160,9 @@ class ForestGenerator {
   private updateElementCount(elementType: keyof typeof this.forestElements, isInitial: boolean = false): void {
     const currentCount = this.forestElements[elementType].length;
     const targetCount = this.settings[elementType];
+
+    let is = isInitial;
+    is = true;
     
     if (currentCount === targetCount) return;
 
