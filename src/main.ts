@@ -57,6 +57,7 @@ class ForestGenerator {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(800, 600); // Fixed size matching container
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Better shadow quality
     this.container.appendChild(this.renderer.domElement);
 
     // Initialize Controls
@@ -122,17 +123,30 @@ class ForestGenerator {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
 
+    //DIRECTIONAL LIGHT
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(50, 50, 50);
+    directionalLight.position.set(50, 100, 70);
     directionalLight.castShadow = true;
+    
+    // Improve shadow quality
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 500;
+    directionalLight.shadow.camera.left = -50;
+    directionalLight.shadow.camera.right = 50;
+    directionalLight.shadow.camera.top = 50;
+    directionalLight.shadow.camera.bottom = -50;
+    
     this.scene.add(directionalLight);
   }
 
+  //GROUND
   private createGround(): void {
     const groundGeometry = new THREE.PlaneGeometry(50, 50);
     const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3a5a40,
-      roughness: 0.8,
+      color: 0x3a5a05,
+      roughness: 0.9,
     });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
@@ -147,6 +161,79 @@ class ForestGenerator {
       Math.cos(angle) * radius,
       Math.sin(angle) * radius
     );
+  }
+
+  private getElementSize(elementType: keyof typeof this.forestElements): THREE.Vector3 {
+    // Define approximate sizes for each element type
+    switch (elementType) {
+      case 'trees':
+        return new THREE.Vector3(3, 6, 3); // Width, Height, Depth
+      case 'rocks':
+        return new THREE.Vector3(1.5, 1.2, 1.5);
+      case 'bushes':
+        return new THREE.Vector3(2, 2, 2);
+      case 'flowers':
+        return new THREE.Vector3(0.5, 1, 0.5);
+      case 'grassPatches':
+        return new THREE.Vector3(0.5, 0.75, 0.5);
+      default:
+        return new THREE.Vector3(1, 1, 1);
+    }
+  }
+
+  private isPositionOccupied(position: THREE.Vector2, elementType: keyof typeof this.forestElements): boolean {
+    const newElementSize = this.getElementSize(elementType);
+    const padding = 0.5; // Additional space between objects
+
+    // Create a box for the new element
+    const newBox = new THREE.Box3();
+    newBox.min.set(
+      position.x - (newElementSize.x / 2) - padding,
+      0,
+      position.y - (newElementSize.z / 2) - padding
+    );
+    newBox.max.set(
+      position.x + (newElementSize.x / 2) + padding,
+      newElementSize.y,
+      position.y + (newElementSize.z / 2) + padding
+    );
+
+    // Check collision with all existing elements
+    for (const type in this.forestElements) {
+      const elements = this.forestElements[type as keyof typeof this.forestElements];
+      const elementSize = this.getElementSize(type as keyof typeof this.forestElements);
+
+      for (const element of elements) {
+        const position = element.position;
+        const existingBox = new THREE.Box3();
+        existingBox.min.set(
+          position.x - (elementSize.x / 2) - padding,
+          0,
+          position.z - (elementSize.z / 2) - padding
+        );
+        existingBox.max.set(
+          position.x + (elementSize.x / 2) + padding,
+          elementSize.y,
+          position.z + (elementSize.z / 2) + padding
+        );
+
+        if (newBox.intersectsBox(existingBox)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private getFreePosition(elementType: keyof typeof this.forestElements, maxAttempts: number = 50): THREE.Vector2 | null {
+    for (let i = 0; i < maxAttempts; i++) {
+      const position = this.getRandomPosition();
+      if (!this.isPositionOccupied(position, elementType)) {
+        return position;
+      }
+    }
+    return null; // No free position found after maxAttempts
   }
 
   private generateInitialForest(): void {
@@ -187,25 +274,39 @@ class ForestGenerator {
       }
     } else {
       // Add new elements
-      for (let i = currentCount; i < targetCount; i++) {
+      let attemptsToAdd = 0;
+      const maxAttempts = 100; // Prevent infinite loops if the scene is too crowded
+
+      while (this.forestElements[elementType].length < targetCount && attemptsToAdd < maxAttempts) {
+        const pos = this.getFreePosition(elementType);
+        
+        if (pos === null) {
+          console.warn(`Could not find free position for ${elementType} after multiple attempts`);
+          break;
+        }
+
         let element: THREE.Object3D;
-        const pos = this.getRandomPosition();
         
         switch (elementType) {
           case 'trees':
             element = VoxelObjects.createTree(3 + Math.random() * 3);
+            this.setupTreeShadows(element);
             break;
           case 'rocks':
             element = VoxelObjects.createRock(0.5 + Math.random() * 1.5);
+            this.disableShadows(element);
             break;
           case 'bushes':
             element = VoxelObjects.createBush(1 + Math.random());
+            this.disableShadows(element);
             break;
           case 'flowers':
             element = VoxelObjects.createFlower(0.5 + Math.random() * 0.5);
+            this.disableShadows(element);
             break;
           case 'grassPatches':
             element = VoxelObjects.createGrassPatch(0.3 + Math.random() * 0.3);
+            this.disableShadows(element);
             break;
           default:
             return;
@@ -215,8 +316,28 @@ class ForestGenerator {
         element.rotation.y = Math.random() * Math.PI * 2;
         this.scene.add(element);
         this.forestElements[elementType].push(element);
+        attemptsToAdd++;
       }
     }
+
+    // Force shadow map update
+    this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  private setupTreeShadows(tree: THREE.Object3D): void {
+    tree.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+      }
+    });
+  }
+
+  private disableShadows(object: THREE.Object3D): void {
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = false;
+      }
+    });
   }
 
   private onWindowResize(): void {
